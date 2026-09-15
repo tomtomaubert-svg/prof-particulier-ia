@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Prof Particulier IA",
   description: "Ton professeur particulier IA, adapté à ton niveau, pour toutes les matières.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Prof Particulier IA",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b0b14",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

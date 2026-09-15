@@ -1,0 +1,23 @@
+{
+  "name": "Prof Particulier IA",
+  "short_name": "Prof Particulier",
+  "description": "Ton professeur particulier IA, adapté à ton niveau, pour toutes les matières.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0b0b14",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
