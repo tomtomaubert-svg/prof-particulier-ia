@@ -6,6 +6,8 @@ import { Camera, Upload, Loader2, X } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
+import { compressImageFile } from "@/lib/client/compress-image";
+import { safeJson } from "@/lib/client/safe-json";
 
 const PIPELINE_STEPS = [
   "Lecture des pages…",
@@ -36,13 +38,17 @@ export function SheetUploader() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  function onFiles(files: FileList | null) {
+  async function onFiles(files: FileList | null) {
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => setImages((prev) => [...prev, reader.result as string]);
-      reader.readAsDataURL(file);
-    });
+    setError(null);
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImageFile(file);
+        setImages((prev) => [...prev, compressed]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Impossible de lire une image.");
+      }
+    }
   }
 
   async function submit() {
@@ -56,12 +62,14 @@ export function SheetUploader() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images, sheetType }),
       });
-      const data = await res.json();
-      if (data?.id) {
-        router.push(`/fiche/${data.id}`);
+      const { data, readError } = await safeJson(res);
+      if (readError) throw new Error(readError);
+      const body = data as { id?: string; error?: string };
+      if (body?.id) {
+        router.push(`/fiche/${body.id}`);
         return;
       }
-      throw new Error(data?.error || "Échec de la création de la fiche");
+      throw new Error(body?.error || "Échec de la création de la fiche");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setLoading(false);

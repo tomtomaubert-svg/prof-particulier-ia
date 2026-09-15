@@ -6,6 +6,8 @@ import { Camera, Upload, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
+import { compressImageFile } from "@/lib/client/compress-image";
+import { safeJson } from "@/lib/client/safe-json";
 
 const PIPELINE_STEPS = ["Lecture de la photo…", "Compréhension de la notion…", "Préparation de l'explication…"];
 
@@ -31,11 +33,15 @@ export function ExplanationUploader() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  function onFile(file: File | null) {
+  async function onFile(file: File | null) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    setError(null);
+    try {
+      const compressed = await compressImageFile(file);
+      setPreview(compressed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible de lire cette image.");
+    }
   }
 
   async function submit() {
@@ -49,12 +55,14 @@ export function ExplanationUploader() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageDataUrl: preview, depth }),
       });
-      const data = await res.json();
-      if (data?.id) {
-        router.push(`/explique-moi/${data.id}`);
+      const { data, readError } = await safeJson(res);
+      if (readError) throw new Error(readError);
+      const body = data as { id?: string; error?: string };
+      if (body?.id) {
+        router.push(`/explique-moi/${body.id}`);
         return;
       }
-      throw new Error(data?.error || "Échec de l'analyse");
+      throw new Error(body?.error || "Échec de l'analyse");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setLoading(false);
