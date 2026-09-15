@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Lightbulb, Sparkles, Target } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, CheckCircle2, Lightbulb, Loader2, Sparkles, Target } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { safeJson } from "@/lib/client/safe-json";
 import type { ExerciseAttemptDTO } from "@/lib/exercise/serialize";
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
@@ -23,13 +25,50 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 
 export function CorrectionView({ attempt }: { attempt: ExerciseAttemptDTO }) {
   const { solution, analysis, quality } = attempt;
+  const router = useRouter();
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   if (attempt.status === "error") {
+    async function retry() {
+      setRetrying(true);
+      setRetryError(null);
+      try {
+        const res = await fetch("/api/exercises", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageDataUrl: attempt.imageDataUrl, mode: attempt.mode }),
+        });
+        const { data, readError } = await safeJson(res);
+        if (readError) throw new Error(readError);
+        const body = data as { id?: string; error?: string };
+        if (body?.id) {
+          router.push(`/resoudre/${body.id}`);
+          router.refresh();
+          return;
+        }
+        throw new Error(body?.error || "Échec de la relance");
+      } catch (e) {
+        setRetryError(e instanceof Error ? e.message : "Erreur inconnue");
+        setRetrying(false);
+      }
+    }
+
     return (
       <Card>
-        <CardBody className="space-y-2">
+        <CardBody className="space-y-3">
           <p className="font-medium text-error">L&apos;analyse a échoué</p>
           <p className="text-sm text-text-secondary">{attempt.errorMessage}</p>
+          {retryError && <p className="text-sm text-error">{retryError}</p>}
+          <Button onClick={retry} disabled={retrying}>
+            {retrying ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Nouvelle tentative…
+              </>
+            ) : (
+              "Réessayer"
+            )}
+          </Button>
         </CardBody>
       </Card>
     );
