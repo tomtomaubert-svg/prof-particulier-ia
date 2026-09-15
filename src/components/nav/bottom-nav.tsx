@@ -17,7 +17,10 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 14px)" }}
+    >
       <div className="mx-auto max-w-2xl grid grid-cols-5">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
@@ -26,7 +29,7 @@ export function BottomNav() {
               key={href}
               href={href}
               className={clsx(
-                "flex flex-col items-center gap-1 py-2.5 text-xs transition-colors",
+                "flex flex-col items-center justify-center gap-1 py-3 min-h-14 text-xs transition-colors touch-manipulation active:opacity-60",
                 active ? "text-primary" : "text-text-secondary hover:text-text-primary"
               )}
             >
