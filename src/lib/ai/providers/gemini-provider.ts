@@ -41,15 +41,28 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generateStructured<T>(params: StructuredGenerationParams<T>): Promise<T> {
-    const { systemPrompt, userPrompt, images = [], schema, maxRetries = 2 } = params;
+    // maxRetries volontairement bas (1 = 2 tentatives par modèle) : mieux
+    // vaut essayer plus de modèles différents dans le budget de temps
+    // disponible que retenter longuement le même modèle en difficulté.
+    const { systemPrompt, userPrompt, images = [], schema, maxRetries = 1 } = params;
 
     const baseParts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [
       { text: userPrompt },
       ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.dataBase64 } })),
     ];
 
+    // Budget de temps global : les fonctions serverless (Vercel Hobby) sont
+    // tuées net à 60s sans que le code n'ait la main pour répondre proprement
+    // ni enregistrer l'échec en base. On s'arrête nous-mêmes bien avant pour
+    // toujours pouvoir répondre avec un message clair.
+    const startedAt = Date.now();
+    const deadlineMs = params.deadlineMs ?? 40_000;
+    const timeLeft = () => deadlineMs - (Date.now() - startedAt);
+
     let lastError: unknown;
     for (const modelName of this.models) {
+      if (timeLeft() <= 0) break;
+
       const model = this.client.getGenerativeModel({
         model: modelName,
         systemInstruction: systemPrompt,
@@ -61,6 +74,7 @@ export class GeminiProvider implements AIProvider {
       const parts = [...baseParts];
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (timeLeft() <= 0) break;
         try {
           const result = await model.generateContent(parts);
           const text = result.response.text();
@@ -80,10 +94,11 @@ export class GeminiProvider implements AIProvider {
             // on passe directement au modèle de repli suivant.
             break;
           }
-          if (attempt < maxRetries && isOverloaded(err)) {
+          if (attempt < maxRetries && isOverloaded(err) && timeLeft() > 2000) {
             // Surcharge temporaire (503) : on laisse passer un peu de
-            // temps avant de retenter, plutôt que de marteler l'API.
-            await sleep(1500 * (attempt + 1));
+            // temps avant de retenter, plutôt que de marteler l'API —
+            // mais seulement s'il reste assez de budget pour le faire.
+            await sleep(Math.min(1500 * (attempt + 1), Math.max(timeLeft() - 1000, 0)));
           }
         }
       }

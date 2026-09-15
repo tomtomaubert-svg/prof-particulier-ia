@@ -16,8 +16,10 @@ export interface StructuredGenerationParams<T> {
   userPrompt: string;
   images?: AIImageInput[];
   schema: z.ZodType<T>;
-  /** Nombre de tentatives en cas de sortie JSON invalide (défaut 2). */
+  /** Nombre de tentatives PAR modèle en cas d'échec (défaut 1, soit 2 tentatives). */
   maxRetries?: number;
+  /** Budget de temps total, tous modèles/tentatives confondus, en ms (défaut 40000). */
+  deadlineMs?: number;
 }
 
 export interface AIProvider {

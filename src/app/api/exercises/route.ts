@@ -8,7 +8,7 @@ import { describePipelineError } from "@/lib/ai/describe-pipeline-error";
 import { serializeExerciseAttempt } from "@/lib/exercise/serialize";
 import { bumpSkillMastery } from "@/lib/student/skill-mastery";
 
-export const maxDuration = 120;
+export const maxDuration = 60; // plafond réel du plan Vercel Hobby (même si on demandait plus)
 
 const BodySchema = z.object({
   imageDataUrl: z.string().startsWith("data:image/"),

@@ -39,6 +39,18 @@ function assertAnalysisIsUsable(analysis: DocumentAnalysis): void {
   }
 }
 
+// Budget de temps PARTAGÉ sur tout un pipeline (plusieurs appels IA
+// séquentiels), pas par appel individuel : les fonctions serverless (Vercel
+// Hobby) sont tuées net à 60s, sans possibilité d'enregistrer proprement un
+// échec en base ni de répondre au client. On se réserve une marge (10s) pour
+// le reste du traitement de la requête (parsing, écritures DB).
+const PIPELINE_TIME_BUDGET_MS = 50_000;
+
+function createDeadline(totalMs: number = PIPELINE_TIME_BUDGET_MS) {
+  const startedAt = Date.now();
+  return () => Math.max(totalMs - (Date.now() - startedAt), 3000);
+}
+
 export interface SolvePipelineInput {
   imageMimeType: string;
   imageDataBase64: string;
@@ -63,6 +75,7 @@ export interface SolvePipelineResult {
  */
 export async function runSolveExercisePipeline(input: SolvePipelineInput): Promise<SolvePipelineResult> {
   const image = { mimeType: input.imageMimeType, dataBase64: input.imageDataBase64 };
+  const timeLeft = createDeadline();
 
   input.onStatus?.("analyzing");
   const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
@@ -70,6 +83,7 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
     ...analysisPrompt,
     images: [image],
     schema: DocumentAnalysisSchema,
+    deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
 
@@ -78,6 +92,7 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
   let solution = await routeModel("exercise-solving").generateStructured({
     ...solverPrompt,
     schema: ExerciseSolutionSchema,
+    deadlineMs: timeLeft(),
   });
 
   input.onStatus?.("verifying");
@@ -85,6 +100,7 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
   let verification = await routeModel("exercise-verification").generateStructured({
     ...verifierPrompt,
     schema: VerificationResultSchema,
+    deadlineMs: timeLeft(),
   });
 
   if (!verification.isValid) {
@@ -94,10 +110,12 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une vérification indépendante a signalé ces problèmes dans une tentative précédente, corrige-les : ${verification.issues.join("; ")}${verification.correctedResult ? `\nRésultat correct attendu : ${verification.correctedResult}` : ""}`,
       schema: ExerciseSolutionSchema,
+      deadlineMs: timeLeft(),
     });
     verification = await routeModel("exercise-verification").generateStructured({
       ...buildExerciseVerifierPrompt(input.levelContext, analysis, solution),
       schema: VerificationResultSchema,
+      deadlineMs: timeLeft(),
     });
   }
 
@@ -106,6 +124,7 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
   let quality = await routeModel("quality-review").generateStructured({
     ...qualityPrompt,
     schema: QualityEvaluationSchema,
+    deadlineMs: timeLeft(),
   });
 
   if (!quality.passesThreshold) {
@@ -114,10 +133,12 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une évaluation qualité a relevé ces défauts sur une version précédente, corrige-les avant de répondre : ${quality.defects.join("; ")}`,
       schema: ExerciseSolutionSchema,
+      deadlineMs: timeLeft(),
     });
     quality = await routeModel("quality-review").generateStructured({
       ...buildQualityReviewerPrompt(input.levelContext, solution),
       schema: QualityEvaluationSchema,
+      deadlineMs: timeLeft(),
     });
   }
 
@@ -148,12 +169,15 @@ export interface CreateSheetPipelineResult {
 export async function runCreateRevisionSheetPipeline(
   input: CreateSheetPipelineInput
 ): Promise<CreateSheetPipelineResult> {
+  const timeLeft = createDeadline();
+
   input.onStatus?.("analyzing");
   const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
   const analysis = await routeModel("document-analysis").generateStructured({
     ...analysisPrompt,
     images: input.images,
     schema: DocumentAnalysisSchema,
+    deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
 
@@ -162,12 +186,14 @@ export async function runCreateRevisionSheetPipeline(
   let content = await routeModel("revision-sheet-creation").generateStructured({
     ...sheetPrompt,
     schema: RevisionSheetContentSchema,
+    deadlineMs: timeLeft(),
   });
 
   input.onStatus?.("evaluating-quality");
   let quality = await routeModel("quality-review").generateStructured({
     ...buildQualityReviewerPrompt(input.levelContext, content, "une fiche de révision"),
     schema: QualityEvaluationSchema,
+    deadlineMs: timeLeft(),
   });
 
   if (!quality.passesThreshold) {
@@ -176,10 +202,12 @@ export async function runCreateRevisionSheetPipeline(
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une évaluation qualité a relevé ces défauts sur une version précédente, corrige-les avant de répondre : ${quality.defects.join("; ")}`,
       schema: RevisionSheetContentSchema,
+      deadlineMs: timeLeft(),
     });
     quality = await routeModel("quality-review").generateStructured({
       ...buildQualityReviewerPrompt(input.levelContext, content, "une fiche de révision"),
       schema: QualityEvaluationSchema,
+      deadlineMs: timeLeft(),
     });
   }
 
@@ -203,12 +231,15 @@ export interface ExplainPipelineResult {
 
 /** Premier round d'explication : DocumentAnalyzer -> LessonExplainer (sections 20-21). */
 export async function runExplainPipeline(input: ExplainPipelineInput): Promise<ExplainPipelineResult> {
+  const timeLeft = createDeadline();
+
   input.onStatus?.("analyzing");
   const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
   const analysis = await routeModel("document-analysis").generateStructured({
     ...analysisPrompt,
     images: [input.image],
     schema: DocumentAnalysisSchema,
+    deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
 
@@ -216,6 +247,7 @@ export async function runExplainPipeline(input: ExplainPipelineInput): Promise<E
   const round = await routeModel("lesson-explanation").generateStructured({
     ...buildLessonExplainerPrompt(input.levelContext, analysis, input.depth),
     schema: ExplanationRoundSchema,
+    deadlineMs: timeLeft(),
   });
 
   input.onStatus?.("done");
