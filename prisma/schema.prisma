@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Profil pédagogique ---------------------------------------------------
+
+model StudentProfile {
+  id          String   @id @default(cuid())
+  displayName String
+  country     String   @default("FR")
+  schoolLevel String // ex: "COLLEGE_4E", "LYCEE_TERMINALE", "SUP_LICENCE3"
+  track       String? // voie: generale | technologique | professionnelle
+  specialities String? // JSON string[] des spécialités suivies (lycée)
+  ageRangeMin Int?
+  ageRangeMax Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exercises   ExerciseAttempt[]
+  skills      SkillMastery[]
+  sheets      RevisionSheet[]
+  explanations Explanation[]
+}
+
+model SkillMastery {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  subject   String
+  skill     String
+  masteryPct Int     @default(50)
+  attempts  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, subject, skill])
+}
+
+// --- Module "Résoudre un exercice" ----------------------------------------
+
+model ExerciseAttempt {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  imageDataUrl String  // image source (data URL), stockée localement pour le MVP
+  mode        String   @default("correction") // "apprendre" | "correction"
+
+  subject     String?
+  chapter     String?
+  detectedLevel String?
+  difficulty  String?
+  exerciseType String?
+
+  analysisJson   String? // sortie DocumentAnalyzer (JSON)
+  solutionJson   String? // sortie ExerciseSolver + Verifier (JSON)
+  qualityScore   Int?
+  qualityJson    String?
+
+  status      String   @default("pending") // pending | analyzing | solving | verifying | done | error
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Module "Créer une fiche" ---------------------------------------------
+
+model RevisionSheet {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  imagesJson  String   // data URLs des pages photographiées (JSON string[])
+  sheetType   String   @default("standard") // "express" | "standard" | "complete"
+
+  subject     String?
+  chapter     String?
+  detectedLevel String?
+
+  analysisJson String? // sortie DocumentAnalyzer (JSON)
+  contentJson  String? // sortie RevisionSheetCreator (JSON)
+  qualityScore Int?
+  qualityJson  String?
+
+  status      String   @default("pending") // pending | analyzing | creating | done | error
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Module "Explique-moi" -------------------------------------------------
+
+model Explanation {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  imageDataUrl String
+  depth       String   @default("normal") // "simple" | "normal" | "approfondi"
+
+  subject     String?
+  chapter     String?
+  detectedLevel String?
+
+  analysisJson String?  // sortie DocumentAnalyzer (JSON), réutilisée pour chaque relance
+  roundsJson   String?  // historique des rounds d'explication (JSON array), le dernier est affiché
+  qualityScore Int?
+  qualityJson  String?
+
+  status      String   @default("pending") // pending | analyzing | explaining | done | error
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
