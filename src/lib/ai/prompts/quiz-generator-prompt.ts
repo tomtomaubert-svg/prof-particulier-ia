@@ -22,7 +22,17 @@ Consignes :
 - Adapte strictement la difficulté et le vocabulaire au niveau indiqué ("${params.levelLabel}"), pas à un niveau supérieur ou inférieur.
 - Ne jamais inventer un fait faux ou une date incorrecte : si tu n'es pas certain d'un détail précis (date exacte, chiffre), formule la question de façon à rester factuellement sûr.
 
-Réponds STRICTEMENT en JSON conforme au schéma demandé, sans texte avant ou après.`;
+FORMAT DE SORTIE IMPÉRATIF : un unique OBJET JSON (jamais un tableau en racine), avec exactement cette forme :
+{
+  "title": "string",
+  "questions": [
+    { "type": "qcm" | "vrai_faux" | "question_courte", "question": "string", "choices": ["string","string","string","string"] ou null, "correctAnswer": "string", "explanation": "string" }
+  ],
+  "confidence": 0.0 à 1.0
+}
+"questions" est un TABLEAU à l'intérieur de l'objet — ne renvoie jamais directement ce tableau comme racine du JSON.
+
+Réponds STRICTEMENT en JSON conforme à cette forme, sans texte avant ou après.`;
 
   const userPrompt = `Génère le quiz sur "${params.theme}" (${params.subject}, niveau ${params.levelLabel}).`;
 
