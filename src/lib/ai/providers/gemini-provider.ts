@@ -55,6 +55,12 @@ export class GeminiProvider implements AIProvider {
       } catch (err) {
         lastError = err;
         console.error(`[GeminiProvider] tentative ${attempt + 1}/${maxRetries + 1} échouée:`, err);
+        // Le modèle gratuit peut être temporairement surchargé (503) : on
+        // laisse passer un peu de temps avant de retenter plutôt que de
+        // marteler l'API immédiatement avec la même requête.
+        if (attempt < maxRetries && isRetryableStatus(err)) {
+          await sleep(1500 * (attempt + 1));
+        }
       }
     }
     throw new AIProviderError(
@@ -62,6 +68,15 @@ export class GeminiProvider implements AIProvider {
       lastError
     );
   }
+}
+
+function isRetryableStatus(err: unknown): boolean {
+  const message = describeError(err);
+  return /503|overloaded|high demand|429|rate limit/i.test(message);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function describeError(err: unknown): string {
