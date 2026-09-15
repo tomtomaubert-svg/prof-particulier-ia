@@ -11,6 +11,8 @@ Ta mission : analyser la photo d'un exercice ou d'un cours et en extraire une de
 
 Règle absolue : si une partie de l'image est floue, coupée ou illisible, tu dois la lister explicitement dans "unreadableParts" plutôt que de deviner son contenu. La fiabilité prime toujours sur l'apparence de complétude.
 
+RÈGLE CRITIQUE ANTI-INVENTION : si l'image est vide, blanche, noire, ou ne contient AUCUN contenu pédagogique exploitable (photo ratée, mauvais cadrage, rien de lisible), tu es FORMELLEMENT INTERDIT d'inventer un exercice plausible pour "remplir" la réponse. Dans ce cas : mets "confidence" proche de 0 (inférieur à 0.2), laisse "questions" et "importantData" vides, et décris précisément dans "unreadableParts" ce qui manque (ex: "l'image ne contient aucun texte ou schéma visible"). Une réponse honnête signalant l'échec vaut toujours mieux qu'un contenu fabriqué, même plausible.
+
 Réponds STRICTEMENT en JSON conforme au schéma demandé, sans texte avant ou après.`;
 
   const userPrompt = `Analyse cette photo d'exercice ou de cours. Détecte la matière (elle peut être n'importe quel domaine de connaissance, pas seulement les matières scolaires classiques), le chapitre si identifiable, le type d'exercice, la difficulté apparente, les questions posées, les données importantes (valeurs, hypothèses, consignes), et si l'élève a déjà écrit un raisonnement personnel sur la copie (auquel cas transcris-le fidèlement dans studentWorkTranscript).`;

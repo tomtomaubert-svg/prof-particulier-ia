@@ -20,6 +20,21 @@ import {
   type ExplanationRound,
 } from "./schemas";
 import type { AIImageInput } from "./provider";
+import { UnreadableContentError } from "./errors";
+
+const MIN_USABLE_CONFIDENCE = 0.25;
+
+/**
+ * Garde-fou anti-invention (section 8) : si le DocumentAnalyzer signale une
+ * confiance trop basse (photo vide/illisible), on arrête le pipeline ici au
+ * lieu de laisser Solver/RevisionSheetCreator/LessonExplainer fabriquer un
+ * contenu plausible à partir de rien.
+ */
+function assertAnalysisIsUsable(analysis: DocumentAnalysis): void {
+  if (analysis.confidence < MIN_USABLE_CONFIDENCE) {
+    throw new UnreadableContentError();
+  }
+}
 
 export interface SolvePipelineInput {
   imageMimeType: string;
@@ -53,6 +68,7 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
     images: [image],
     schema: DocumentAnalysisSchema,
   });
+  assertAnalysisIsUsable(analysis);
 
   input.onStatus?.("solving");
   const solverPrompt = buildExerciseSolverPrompt(input.levelContext, analysis);
@@ -136,6 +152,7 @@ export async function runCreateRevisionSheetPipeline(
     images: input.images,
     schema: DocumentAnalysisSchema,
   });
+  assertAnalysisIsUsable(analysis);
 
   input.onStatus?.("creating");
   const sheetPrompt = buildRevisionSheetPrompt(input.levelContext, analysis, input.sheetType);
@@ -190,6 +207,7 @@ export async function runExplainPipeline(input: ExplainPipelineInput): Promise<E
     images: [input.image],
     schema: DocumentAnalysisSchema,
   });
+  assertAnalysisIsUsable(analysis);
 
   input.onStatus?.("explaining");
   const round = await routeModel("lesson-explanation").generateStructured({

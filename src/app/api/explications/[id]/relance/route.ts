@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/student/current-profile";
 import { buildLevelContext } from "@/lib/student/levels";
 import { runExplainRetry } from "@/lib/ai/pipeline";
-import { AIProviderError } from "@/lib/ai/provider";
+import { describePipelineError } from "@/lib/ai/describe-pipeline-error";
 import { serializeExplanation } from "@/lib/explication/serialize";
 import type { DocumentAnalysis, ExplanationRound } from "@/lib/ai/schemas";
 
@@ -50,10 +50,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json(serializeExplanation(updated));
   } catch (err) {
-    const message =
-      err instanceof AIProviderError
-        ? err.message
-        : "Une erreur est survenue pendant la relance. Réessaie dans quelques instants.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: describePipelineError(err) }, { status: 502 });
   }
 }

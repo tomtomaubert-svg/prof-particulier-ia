@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/student/current-profile";
 import { buildLevelContext } from "@/lib/student/levels";
 import { runCreateRevisionSheetPipeline } from "@/lib/ai/pipeline";
-import { AIProviderError } from "@/lib/ai/provider";
+import { describePipelineError } from "@/lib/ai/describe-pipeline-error";
 import { serializeRevisionSheet } from "@/lib/fiche/serialize";
 import { bumpSkillMastery } from "@/lib/student/skill-mastery";
 
@@ -74,10 +74,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(serializeRevisionSheet(updated));
   } catch (err) {
-    const message =
-      err instanceof AIProviderError
-        ? err.message
-        : "Une erreur est survenue pendant la création de la fiche. Réessaie dans quelques instants.";
+    const message = describePipelineError(err);
     const updated = await prisma.revisionSheet.update({
       where: { id: sheet.id },
       data: { status: "error", errorMessage: message },

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/student/current-profile";
 import { buildLevelContext } from "@/lib/student/levels";
 import { runSolveExercisePipeline } from "@/lib/ai/pipeline";
-import { AIProviderError } from "@/lib/ai/provider";
+import { describePipelineError } from "@/lib/ai/describe-pipeline-error";
 import { serializeExerciseAttempt } from "@/lib/exercise/serialize";
 import { bumpSkillMastery } from "@/lib/student/skill-mastery";
 
@@ -77,10 +77,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(serializeExerciseAttempt(updated));
   } catch (err) {
-    const message =
-      err instanceof AIProviderError
-        ? err.message
-        : "Une erreur est survenue pendant l'analyse. Réessaie dans quelques instants.";
+    const message = describePipelineError(err);
     const updated = await prisma.exerciseAttempt.update({
       where: { id: attempt.id },
       data: { status: "error", errorMessage: message },
