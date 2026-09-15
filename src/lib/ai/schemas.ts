@@ -117,6 +117,24 @@ export const ExplanationRoundSchema = z.object({
 });
 export type ExplanationRound = z.infer<typeof ExplanationRoundSchema>;
 
+// --- Module "Quiz" (section 28) ---------------------------------------------
+
+export const QuizQuestionSchema = z.object({
+  type: z.enum(["qcm", "vrai_faux", "question_courte"]),
+  question: z.string(),
+  choices: z.array(z.string()).nullable().describe("4 choix pour un QCM, sinon null"),
+  correctAnswer: z.string().describe("Réponse correcte : le texte du choix pour un QCM, 'Vrai'/'Faux', ou la réponse attendue"),
+  explanation: z.string().describe("Pourquoi c'est la bonne réponse, à afficher à la correction"),
+});
+export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
+
+export const QuizContentSchema = z.object({
+  title: z.string(),
+  questions: z.array(QuizQuestionSchema),
+  confidence: z.number().min(0).max(1),
+});
+export type QuizContent = z.infer<typeof QuizContentSchema>;
+
 export const QualityEvaluationSchema = z.object({
   accuracy: z.number().min(0).max(6),
   clarity: z.number().min(0).max(4),

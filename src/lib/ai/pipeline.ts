@@ -5,6 +5,7 @@ import { buildExerciseVerifierPrompt } from "./prompts/exercise-verifier-prompt"
 import { buildQualityReviewerPrompt } from "./prompts/quality-reviewer-prompt";
 import { buildRevisionSheetPrompt } from "./prompts/revision-sheet-prompt";
 import { buildLessonExplainerPrompt } from "./prompts/lesson-explainer-prompt";
+import { buildQuizGeneratorPrompt } from "./prompts/quiz-generator-prompt";
 import {
   DocumentAnalysisSchema,
   ExerciseSolutionSchema,
@@ -12,12 +13,14 @@ import {
   QualityEvaluationSchema,
   RevisionSheetContentSchema,
   ExplanationRoundSchema,
+  QuizContentSchema,
   type DocumentAnalysis,
   type ExerciseSolution,
   type VerificationResult,
   type QualityEvaluation,
   type RevisionSheetContent,
   type ExplanationRound,
+  type QuizContent,
 } from "./schemas";
 import type { AIImageInput } from "./provider";
 import { UnreadableContentError } from "./errors";
@@ -232,5 +235,25 @@ export async function runExplainRetry(params: {
   return routeModel("lesson-explanation").generateStructured({
     ...buildLessonExplainerPrompt(params.levelContext, params.analysis, params.depth, params.previousMethods),
     schema: ExplanationRoundSchema,
+  });
+}
+
+// --- Module "Quiz" -----------------------------------------------------------
+
+export interface GenerateQuizInput {
+  subject: string;
+  theme: string;
+  levelLabel: string;
+}
+
+/**
+ * QuizGenerator (section 28) : génère directement au niveau associé au
+ * thème choisi, pas à celui du profil — n'importe quel programme peut être
+ * révisé, pas seulement le niveau/les spécialités de l'élève.
+ */
+export async function runGenerateQuizPipeline(input: GenerateQuizInput): Promise<QuizContent> {
+  return routeModel("quiz-generation").generateStructured({
+    ...buildQuizGeneratorPrompt(input),
+    schema: QuizContentSchema,
   });
 }

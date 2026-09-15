@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Camera, BookOpen, Lightbulb } from "lucide-react";
+import { Search, Camera, BookOpen, Lightbulb, Brain } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-type Kind = "exercice" | "fiche" | "explication";
+type Kind = "exercice" | "fiche" | "explication" | "quiz";
 
 interface Item {
   id: string;
@@ -19,10 +19,11 @@ interface Item {
   createdAt: string;
 }
 
-const KIND_META: Record<Kind, { icon: React.ElementType; label: string }> = {
-  exercice: { icon: Camera, label: "Exercice" },
-  fiche: { icon: BookOpen, label: "Fiche" },
-  explication: { icon: Lightbulb, label: "Explication" },
+const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: string }> = {
+  exercice: { icon: Camera, label: "Exercice", plural: "Exercices" },
+  fiche: { icon: BookOpen, label: "Fiche", plural: "Fiches" },
+  explication: { icon: Lightbulb, label: "Explication", plural: "Explications" },
+  quiz: { icon: Brain, label: "Quiz", plural: "Quiz" },
 };
 
 export function LibraryList({ items }: { items: Item[] }) {
@@ -51,7 +52,7 @@ export function LibraryList({ items }: { items: Item[] }) {
       </div>
 
       <div className="flex gap-2 overflow-x-auto">
-        {(["tous", "exercice", "fiche", "explication"] as const).map((k) => (
+        {(["tous", "exercice", "fiche", "explication", "quiz"] as const).map((k) => (
           <button
             key={k}
             onClick={() => setKindFilter(k)}
@@ -59,7 +60,7 @@ export function LibraryList({ items }: { items: Item[] }) {
               kindFilter === k ? "border-primary bg-primary-soft" : "border-border"
             }`}
           >
-            {k === "tous" ? "Tous" : KIND_META[k].label + "s"}
+            {k === "tous" ? "Tous" : KIND_META[k].plural}
           </button>
         ))}
       </div>

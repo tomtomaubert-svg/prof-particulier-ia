@@ -12,10 +12,11 @@ export default async function DashboardPage() {
   if (!profile) return null;
   const levelDef = getLevelDef(profile.schoolLevel);
 
-  const [recentExercises, recentSheets, recentExplanations] = await Promise.all([
+  const [recentExercises, recentSheets, recentExplanations, recentQuizzes] = await Promise.all([
     prisma.exerciseAttempt.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.revisionSheet.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.explanation.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    prisma.quiz.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
   ]);
 
   const recentActivity = [
@@ -42,6 +43,14 @@ export default async function DashboardPage() {
       subtitle: ex.chapter ?? "Explication",
       status: ex.status,
       createdAt: ex.createdAt,
+    })),
+    ...recentQuizzes.map((q) => ({
+      id: q.id,
+      href: `/reviser/${q.id}`,
+      title: q.subject,
+      subtitle: q.theme,
+      status: q.status,
+      createdAt: q.createdAt,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

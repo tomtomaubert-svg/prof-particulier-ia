@@ -25,6 +25,7 @@ model StudentProfile {
   skills      SkillMastery[]
   sheets      RevisionSheet[]
   explanations Explanation[]
+  quizzes     Quiz[]
 }
 
 model SkillMastery {
@@ -114,6 +115,25 @@ model Explanation {
   qualityJson  String?
 
   status      String   @default("pending") // pending | analyzing | explaining | done | error
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Module "Quiz" -----------------------------------------------------------
+
+model Quiz {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  subject     String
+  theme       String
+  levelLabel  String
+
+  contentJson String? // sortie QuizGenerator (JSON: titre + questions)
+  status      String   @default("pending") // pending | generating | done | error
   errorMessage String?
 
   createdAt   DateTime @default(now())

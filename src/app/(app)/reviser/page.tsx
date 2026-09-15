@@ -1,19 +1,20 @@
-import { Card, CardBody } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { getCurrentProfile } from "@/lib/student/current-profile";
+import { getLevelDef } from "@/lib/student/levels";
+import { QuizCatalogBrowser } from "@/components/quiz/quiz-catalog-browser";
 
-export default function ReviserPage() {
+export default async function ReviserPage() {
+  const profile = await getCurrentProfile();
+  const ownLevelLabel = profile ? getLevelDef(profile.schoolLevel).label : "Général";
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Réviser</h1>
-      <Card>
-        <CardBody className="space-y-2">
-          <Badge tone="neutral">Bientôt disponible</Badge>
-          <p className="text-sm text-text-secondary">
-            Quiz et flashcards générés automatiquement depuis tes fiches et exercices arriveront ici dans une
-            prochaine itération.
-          </p>
-        </CardBody>
-      </Card>
+      <div>
+        <h1 className="text-2xl font-semibold">Réviser</h1>
+        <p className="text-text-secondary text-sm mt-1">
+          Quiz sur n&apos;importe quel programme, pas seulement le tien — cherche un thème ou tape le tien.
+        </p>
+      </div>
+      <QuizCatalogBrowser ownLevelLabel={ownLevelLabel} />
     </div>
   );
 }

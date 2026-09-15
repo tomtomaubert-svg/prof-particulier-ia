@@ -13,6 +13,7 @@ export type AITask =
   | "exercise-verification" // second regard indépendant
   | "revision-sheet-creation" // synthèse de cours
   | "lesson-explanation" // pédagogie progressive
+  | "quiz-generation" // génération de quiz
   | "quality-review"; // évaluation qualité
 
 export function routeModel(task: AITask): AIProvider {

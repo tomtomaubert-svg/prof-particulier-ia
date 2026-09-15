@@ -6,10 +6,11 @@ export default async function BibliothequePage() {
   const profileId = await getCurrentProfileId();
   if (!profileId) return null;
 
-  const [exercises, sheets, explanations] = await Promise.all([
+  const [exercises, sheets, explanations, quizzes] = await Promise.all([
     prisma.exerciseAttempt.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
     prisma.revisionSheet.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
     prisma.explanation.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
+    prisma.quiz.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const items = [
@@ -42,6 +43,16 @@ export default async function BibliothequePage() {
       status: ex.status,
       qualityScore: null,
       createdAt: ex.createdAt.toISOString(),
+    })),
+    ...quizzes.map((q) => ({
+      id: q.id,
+      href: `/reviser/${q.id}`,
+      kind: "quiz" as const,
+      subject: q.subject,
+      chapter: q.theme,
+      status: q.status,
+      qualityScore: null,
+      createdAt: q.createdAt.toISOString(),
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
