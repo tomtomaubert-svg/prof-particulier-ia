@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/student/current-profile";
+import { getCurrentProfileId } from "@/lib/student/current-profile";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/onboarding");
+  // Simple lecture de cookie (pas d'appel base de données) : la page elle-même
+  // vérifie déjà le profil réel si elle en a besoin. Éviter ici un aller-retour
+  // réseau supplémentaire sur CHAQUE navigation, pour une navigation rapide.
+  const profileId = await getCurrentProfileId();
+  if (!profileId) redirect("/onboarding");
 
   return (
     <div className="flex flex-col flex-1 min-h-screen">
