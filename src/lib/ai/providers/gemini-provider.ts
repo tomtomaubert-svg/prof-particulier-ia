@@ -54,10 +54,20 @@ export class GeminiProvider implements AIProvider {
         });
       } catch (err) {
         lastError = err;
+        console.error(`[GeminiProvider] tentative ${attempt + 1}/${maxRetries + 1} échouée:`, err);
       }
     }
-    throw new AIProviderError(`Échec de génération structurée Gemini après ${maxRetries + 1} tentatives`, lastError);
+    throw new AIProviderError(
+      `Échec de génération structurée Gemini après ${maxRetries + 1} tentatives : ${describeError(lastError)}`,
+      lastError
+    );
   }
+}
+
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err) return String((err as { message: unknown }).message);
+  return String(err);
 }
 
 function safeJsonParse(text: string): unknown {
