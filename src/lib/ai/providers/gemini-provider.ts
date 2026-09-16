@@ -71,6 +71,11 @@ export class GeminiProvider implements AIProvider {
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0.2,
+          // Sans ceci, un modèle peut "boucler" une réponse JSON valide mais
+          // incomplète (champs de fin de schéma manquants) sur les exercices
+          // complexes (long travail d'élève, beaucoup d'étapes) en sentant
+          // qu'il approche d'une limite de sortie.
+          maxOutputTokens: 8192,
         },
       });
       const parts = [...baseParts];

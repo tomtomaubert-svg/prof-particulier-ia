@@ -5,56 +5,76 @@ import { z } from "zod";
 // Règle absolue (section 8) : ne jamais inventer -> tout schéma porte un champ
 // `confidence` et une liste `unreadableParts` pour signaler l'incertitude.
 
+// Gemini omet parfois un champ censé être obligatoire (undefined au lieu
+// d'une chaîne/tableau vide) sur les réponses complexes, au lieu de renvoyer
+// une vraie valeur manquante explicite. Plutôt que de faire échouer tout le
+// pipeline pour un champ secondaire manquant, on tolère ces variantes et on
+// retombe sur une valeur neutre — les champs réellement critiques
+// (result, method, whatWeSearch...) restent des chaînes strictement requises.
+const lenientString = () =>
+  z
+    .string()
+    .optional()
+    .transform((v) => v ?? "");
+
+const lenientStringArray = () =>
+  z
+    .union([z.array(z.string()), z.string()])
+    .optional()
+    .transform((v) => (v === undefined ? [] : Array.isArray(v) ? v : [v]));
+
 export const DocumentAnalysisSchema = z.object({
   subject: z.string().describe("Matière détectée, ex: 'Mathématiques', 'Histoire', 'Droit fiscal'"),
-  chapter: z.string().nullable().describe("Chapitre/thème si identifiable, sinon null"),
+  chapter: z.string().nullish().describe("Chapitre/thème si identifiable, sinon null"),
   detectedLevel: z.string().describe("Niveau scolaire apparent du document d'après son contenu"),
   exerciseType: z.string().describe("Type d'exercice: ex: 'problème', 'QCM', 'question de cours', 'dissertation'"),
   difficulty: z.enum(["facile", "moyen", "difficile"]),
-  questions: z.array(z.string()).describe("Liste des questions/consignes identifiées"),
-  importantData: z.array(z.string()).describe("Données, valeurs, hypothèses importantes du document"),
+  questions: lenientStringArray().describe("Liste des questions/consignes identifiées"),
+  importantData: lenientStringArray().describe("Données, valeurs, hypothèses importantes du document"),
   hasStudentWork: z.boolean().describe("true si l'élève a déjà écrit un raisonnement/une tentative sur la copie"),
-  studentWorkTranscript: z.string().nullable().describe("Transcription du raisonnement de l'élève si présent, sinon null"),
-  unreadableParts: z.array(z.string()).describe("Parties de l'image illisibles ou ambiguës (jamais inventées)"),
+  studentWorkTranscript: z.string().nullish().describe("Transcription du raisonnement de l'élève si présent, sinon null"),
+  unreadableParts: lenientStringArray().describe("Parties de l'image illisibles ou ambiguës (jamais inventées)"),
   confidence: z.number().min(0).max(1),
 });
 export type DocumentAnalysis = z.infer<typeof DocumentAnalysisSchema>;
 
-export const SolutionStepSchema = z.object({
-  title: z.string(),
-  content: z.string(),
-});
+// Un "step" arrive parfois de Gemini comme une simple chaîne au lieu de
+// {title, content} : on l'accepte et on le range dans `content`.
+export const SolutionStepSchema = z.union([
+  z.object({ title: lenientString(), content: z.string() }),
+  z.string().transform((content) => ({ title: "", content })),
+]);
 
 export const HintsSchema = z.object({
-  hint1: z.string(),
-  hint2: z.string(),
-  whichFormula: z.string(),
-  nextStep: z.string(),
+  hint1: lenientString(),
+  hint2: lenientString(),
+  whichFormula: lenientString(),
+  nextStep: lenientString(),
 });
 
 export const StudentWorkReviewSchema = z.object({
-  whatWasDoneWell: z.string(),
-  firstError: z.string().nullable(),
-  whyItsAnError: z.string().nullable(),
-  howToFixIt: z.string().nullable(),
-  restOfReasoning: z.string().nullable(),
+  whatWasDoneWell: lenientString(),
+  firstError: z.string().nullish(),
+  whyItsAnError: z.string().nullish(),
+  howToFixIt: z.string().nullish(),
+  restOfReasoning: z.string().nullish(),
 });
 
 export const ExerciseSolutionSchema = z.object({
   whatWeSearch: z.string(),
-  importantData: z.array(z.string()),
+  importantData: lenientStringArray(),
   method: z.string().describe("Méthode adaptée au niveau de l'élève, jamais une méthode plus avancée que nécessaire"),
-  formulaOrRule: z.string().nullable(),
+  formulaOrRule: z.string().nullish(),
   steps: z.array(SolutionStepSchema),
   result: z.string(),
-  verification: z.string(),
-  keyTakeaway: z.string(),
-  commonMistake: z.string(),
-  tip: z.string(),
+  verification: lenientString(),
+  keyTakeaway: lenientString(),
+  commonMistake: lenientString(),
+  tip: lenientString(),
   hints: HintsSchema,
-  studentWorkReview: StudentWorkReviewSchema.nullable(),
-  levelJustification: z.string().describe("Pourquoi cette méthode correspond au niveau de l'élève"),
-  unreadableParts: z.array(z.string()),
+  studentWorkReview: StudentWorkReviewSchema.nullish(),
+  levelJustification: lenientString(),
+  unreadableParts: lenientStringArray(),
   confidence: z.number().min(0).max(1),
 });
 export type ExerciseSolution = z.infer<typeof ExerciseSolutionSchema>;
@@ -94,8 +114,11 @@ export const RevisionSheetContentSchema = z.object({
   title: z.string().describe("Titre de la fiche, ex: 'Le second degré'"),
   summary: z.string().describe("Résumé en 1-2 phrases du chapitre"),
   blocks: z.array(RevisionSheetBlockSchema),
-  keyVocabulary: z.array(z.object({ term: z.string(), definition: z.string() })),
-  unreadableParts: z.array(z.string()),
+  keyVocabulary: z
+    .array(z.object({ term: z.string(), definition: z.string() }))
+    .optional()
+    .transform((v) => v ?? []),
+  unreadableParts: lenientStringArray(),
   confidence: z.number().min(0).max(1),
 });
 export type RevisionSheetContent = z.infer<typeof RevisionSheetContentSchema>;
@@ -109,10 +132,10 @@ export const ExplanationRoundSchema = z.object({
   inOneSentence: z.string(),
   toUnderstand: z.string(),
   example: z.string(),
-  analogy: z.string().nullable(),
+  analogy: z.string().nullish(),
   keyTakeaway: z.string(),
   checkQuestion: z.string(),
-  unreadableParts: z.array(z.string()),
+  unreadableParts: lenientStringArray(),
   confidence: z.number().min(0).max(1),
 });
 export type ExplanationRound = z.infer<typeof ExplanationRoundSchema>;
@@ -122,7 +145,7 @@ export type ExplanationRound = z.infer<typeof ExplanationRoundSchema>;
 export const QuizQuestionSchema = z.object({
   type: z.enum(["qcm", "vrai_faux", "question_courte"]),
   question: z.string(),
-  choices: z.array(z.string()).nullable().describe("4 choix pour un QCM, sinon null"),
+  choices: z.array(z.string()).nullish().describe("4 choix pour un QCM, sinon null"),
   correctAnswer: z.string().describe("Réponse correcte : le texte du choix pour un QCM, 'Vrai'/'Faux', ou la réponse attendue"),
   explanation: z.string().describe("Pourquoi c'est la bonne réponse, à afficher à la correction"),
 });

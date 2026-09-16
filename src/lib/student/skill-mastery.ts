@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * affinée plus tard par les quiz/flashcards ; pour l'instant on trace au
  * moins le volume d'activité par matière/chapitre.
  */
-export async function bumpSkillMastery(profileId: string, subject: string, chapter: string | null) {
+export async function bumpSkillMastery(profileId: string, subject: string, chapter: string | null | undefined) {
   const skill = chapter ?? "Général";
   try {
     await prisma.skillMastery.upsert({
