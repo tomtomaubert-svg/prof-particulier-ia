@@ -12,7 +12,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex flex-col flex-1 min-h-screen">
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border">
+      <header
+        className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto max-w-2xl flex items-center justify-between px-4 h-14">
           <span className="font-semibold text-primary">Prof Particulier IA</span>
           <ThemeToggle />
