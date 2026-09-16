@@ -14,6 +14,7 @@ export type AITask =
   | "revision-sheet-creation" // synthèse de cours
   | "lesson-explanation" // pédagogie progressive
   | "quiz-generation" // génération de quiz
+  | "chapter-listing" // liste des chapitres d'une matière/niveau
   | "quality-review"; // évaluation qualité
 
 export function routeModel(task: AITask): AIProvider {

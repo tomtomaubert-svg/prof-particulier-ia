@@ -171,3 +171,19 @@ export const QUIZ_CATALOG: QuizThemeDef[] = [
 ];
 
 export const QUIZ_SUBJECTS = Array.from(new Set(QUIZ_CATALOG.map((t) => t.subject))).sort();
+
+// Liste volontairement large de matières explorables (section 4 du cahier
+// des charges : "cette liste n'est PAS exhaustive"). Sert à l'explorateur
+// "par matière et niveau" (voir ChapterExplorer) : l'IA génère ensuite la
+// liste RÉELLE et complète des chapitres pour la matière + le niveau choisis,
+// plutôt que de dépendre d'une liste de thèmes tapée à la main.
+export const ALL_SUBJECTS = Array.from(
+  new Set([
+    ...QUIZ_SUBJECTS,
+    "Grammaire", "Orthographe", "Littérature", "Chimie", "Physique", "Biologie", "Géologie",
+    "Économie", "Gestion", "Comptabilité", "Finance", "Marketing", "Commerce", "Management", "Communication",
+    "Droit", "Sciences politiques", "Sociologie", "Psychologie", "Sciences sociales", "Sciences humaines",
+    "Programmation", "Algorithmique", "Électricité", "Construction", "Médecine", "Pharmacologie", "Astrophysique",
+    "Culture générale",
+  ])
+).sort();

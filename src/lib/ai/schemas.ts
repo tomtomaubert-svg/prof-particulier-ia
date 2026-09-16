@@ -135,6 +135,13 @@ export const QuizContentSchema = z.object({
 });
 export type QuizContent = z.infer<typeof QuizContentSchema>;
 
+// --- Exploration "tous les chapitres" d'une matière/niveau (section 28) ----
+
+export const ChapterListSchema = z.object({
+  chapters: z.array(z.string()).describe("Liste complète et réelle des chapitres/thèmes de cette matière à ce niveau"),
+});
+export type ChapterList = z.infer<typeof ChapterListSchema>;
+
 export const QualityEvaluationSchema = z.object({
   accuracy: z.number().min(0).max(6),
   clarity: z.number().min(0).max(4),

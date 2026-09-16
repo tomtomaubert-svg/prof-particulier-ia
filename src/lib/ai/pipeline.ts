@@ -6,6 +6,7 @@ import { buildQualityReviewerPrompt } from "./prompts/quality-reviewer-prompt";
 import { buildRevisionSheetPrompt } from "./prompts/revision-sheet-prompt";
 import { buildLessonExplainerPrompt } from "./prompts/lesson-explainer-prompt";
 import { buildQuizGeneratorPrompt } from "./prompts/quiz-generator-prompt";
+import { buildChapterListPrompt } from "./prompts/chapter-list-prompt";
 import {
   DocumentAnalysisSchema,
   ExerciseSolutionSchema,
@@ -14,6 +15,7 @@ import {
   RevisionSheetContentSchema,
   ExplanationRoundSchema,
   QuizContentSchema,
+  ChapterListSchema,
   type DocumentAnalysis,
   type ExerciseSolution,
   type VerificationResult,
@@ -288,4 +290,17 @@ export async function runGenerateQuizPipeline(input: GenerateQuizInput): Promise
     ...buildQuizGeneratorPrompt(input),
     schema: QuizContentSchema,
   });
+}
+
+/**
+ * Liste tous les chapitres réels d'une matière à un niveau donné (section 4 :
+ * jamais limité à une liste tapée à la main). Utilisé par l'explorateur
+ * "par matière et niveau" du module Quiz.
+ */
+export async function runListChaptersPipeline(input: { subject: string; levelLabel: string }): Promise<string[]> {
+  const result = await routeModel("chapter-listing").generateStructured({
+    ...buildChapterListPrompt(input),
+    schema: ChapterListSchema,
+  });
+  return result.chapters;
 }
