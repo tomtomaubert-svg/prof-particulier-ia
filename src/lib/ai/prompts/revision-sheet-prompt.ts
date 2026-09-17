@@ -27,6 +27,13 @@ Règles impératives :
 - Adapte strictement le vocabulaire et la densité au niveau de l'élève (une fiche de 5e n'a pas la même densité qu'une fiche de Terminale ou de licence).
 - Si une partie du document est illisible, signale-le dans unreadableParts plutôt que d'inventer.
 
+FORMAT DU CONTENU — RÈGLE LA PLUS IMPORTANTE : une vraie fiche de révision manuscrite n'est JAMAIS rédigée en phrases complètes. C'est une liste courte de mots-clés, d'exemples ou de cas séparés par des virgules ou des retours à la ligne, pas un paragraphe explicatif.
+- INTERDIT : "La conjonction de coordination sert à relier deux mots ou groupes de mots de même nature, on utilise pour cela des mots comme mais, ou, et..."
+- CORRECT : "mais, ou, et, donc, or, ni, car"
+- Pour "vocabulaire"/"definition"/"methode" : donne le terme puis les exemples/mots-clés séparés par des virgules, quasiment sans verbe conjugué.
+- Limite chaque "content" à une seule ligne courte (une dizaine de mots maximum, sauf "methode" qui peut avoir 2-3 étapes très courtes).
+- "title" doit être un intitulé très court (2-4 mots), pas une phrase.
+
 Réponds STRICTEMENT en JSON conforme au schéma demandé, sans texte avant ou après.`;
 
   const userPrompt = `Voici l'analyse du document photographié (peut couvrir plusieurs pages) :

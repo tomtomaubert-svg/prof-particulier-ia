@@ -1,37 +1,30 @@
-import {
-  BookOpen,
-  Star,
-  Sigma,
-  ListChecks,
-  Lightbulb,
-  AlertTriangle,
-  Calendar,
-  User,
-  Languages,
-  Sparkles,
-  FileText,
-} from "lucide-react";
+import { AlertTriangle, Languages } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { RevisionSheetDTO } from "@/lib/fiche/serialize";
 import type { RevisionSheetBlock } from "@/lib/ai/schemas";
 
-const BLOCK_STYLE: Record<
-  RevisionSheetBlock["type"],
-  { icon: React.ElementType; label: string; tone: "primary" | "success" | "warning" | "error" | "neutral" }
-> = {
-  definition: { icon: BookOpen, label: "Définition", tone: "primary" },
-  a_retenir: { icon: Star, label: "À retenir", tone: "success" },
-  formule: { icon: Sigma, label: "Formule", tone: "primary" },
-  methode: { icon: ListChecks, label: "Méthode", tone: "primary" },
-  exemple: { icon: Lightbulb, label: "Exemple", tone: "neutral" },
-  attention: { icon: AlertTriangle, label: "Attention", tone: "warning" },
-  date: { icon: Calendar, label: "Date", tone: "neutral" },
-  personnage: { icon: User, label: "Personnage", tone: "neutral" },
-  vocabulaire: { icon: Languages, label: "Vocabulaire", tone: "neutral" },
-  astuce: { icon: Sparkles, label: "Astuce", tone: "success" },
-  texte: { icon: FileText, label: "", tone: "neutral" },
-};
+// Palette façon surligneurs (fiche manuscrite de référence) : chaque bloc
+// prend une couleur différente pour distinguer visuellement les notions,
+// pas un code couleur sémantique par type — c'est le style demandé, proche
+// d'une vraie fiche annotée à la main.
+const HIGHLIGHT_COLORS = [
+  { bg: "#fdba74", text: "#7c2d12" }, // orange
+  { bg: "#7dd3fc", text: "#0c4a6e" }, // bleu ciel
+  { bg: "#fde047", text: "#713f12" }, // jaune
+  { bg: "#f9a8d4", text: "#831843" }, // rose
+  { bg: "#86efac", text: "#14532d" }, // vert
+  { bg: "#d8b4fe", text: "#581c87" }, // violet
+  { bg: "#5eead4", text: "#134e4a" }, // turquoise
+  { bg: "#fca5a5", text: "#7f1d1d" }, // rouge
+];
+
+const ATTENTION_COLOR = { bg: "#fca5a5", text: "#7f1d1d" };
+
+function colorFor(block: RevisionSheetBlock, index: number) {
+  if (block.type === "attention") return ATTENTION_COLOR;
+  return HIGHLIGHT_COLORS[index % HIGHLIGHT_COLORS.length];
+}
 
 export function SheetView({ sheet }: { sheet: RevisionSheetDTO }) {
   const { content, quality } = sheet;
@@ -67,8 +60,8 @@ export function SheetView({ sheet }: { sheet: RevisionSheetDTO }) {
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold">{content.title}</h2>
-        <p className="text-text-secondary text-sm mt-1">{content.summary}</p>
+        <h2 className="text-xl font-semibold text-center">{content.title}</h2>
+        <p className="text-text-secondary text-sm mt-1 text-center">{content.summary}</p>
       </div>
 
       {content.unreadableParts.length > 0 && (
@@ -87,26 +80,26 @@ export function SheetView({ sheet }: { sheet: RevisionSheetDTO }) {
         </Card>
       )}
 
-      <div className="space-y-3">
-        {content.blocks.map((block, i) => {
-          const style = BLOCK_STYLE[block.type];
-          const Icon = style.icon;
-          return (
-            <Card key={i}>
-              <CardBody className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Badge tone={style.tone}>
-                    <Icon size={12} />
-                    {style.label || "Notion"}
-                  </Badge>
-                  <p className="font-medium text-sm">{block.title}</p>
+      <Card>
+        <CardBody>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+            {content.blocks.map((block, i) => {
+              const color = colorFor(block, i);
+              return (
+                <div key={i} className="space-y-1.5 min-w-0">
+                  <span
+                    style={{ backgroundColor: color.bg, color: color.text }}
+                    className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wide"
+                  >
+                    {block.title}
+                  </span>
+                  <p className="text-xs leading-snug whitespace-pre-wrap break-words">{block.content}</p>
                 </div>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{block.content}</p>
-              </CardBody>
-            </Card>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </CardBody>
+      </Card>
 
       {content.keyVocabulary.length > 0 && (
         <Card>
