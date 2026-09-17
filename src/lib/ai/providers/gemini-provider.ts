@@ -83,7 +83,13 @@ export class GeminiProvider implements AIProvider {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         if (timeLeft() <= 0) break;
         try {
-          const result = await model.generateContent(parts);
+          // Un timeout par appel est indispensable : sans lui, un seul appel
+          // anormalement lent peut rester bloqué indéfiniment (la vérification
+          // du budget ne se fait qu'ENTRE les tentatives, jamais pendant un
+          // appel déjà en cours), et la fonction serverless se fait tuer net
+          // par la plateforme sans jamais atteindre le bloc catch qui
+          // enregistrerait proprement l'échec.
+          const result = await model.generateContent(parts, { timeout: Math.max(timeLeft(), 3000) });
           const text = result.response.text();
           const parsed = safeJsonParse(text);
           const validated = schema.safeParse(parsed);

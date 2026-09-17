@@ -5,14 +5,22 @@ import { serializeQuiz } from "@/lib/quiz/serialize";
 import { QuizTaker } from "@/components/quiz/quiz-taker";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isStaleInProgress, STALE_ERROR_MESSAGE } from "@/lib/stale-status";
 
 export default async function QuizPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const profileId = await getCurrentProfileId();
   if (!profileId) notFound();
 
-  const quiz = await prisma.quiz.findUnique({ where: { id } });
+  let quiz = await prisma.quiz.findUnique({ where: { id } });
   if (!quiz || quiz.profileId !== profileId) notFound();
+
+  if (isStaleInProgress(quiz.status, quiz.createdAt)) {
+    quiz = await prisma.quiz.update({
+      where: { id },
+      data: { status: "error", errorMessage: STALE_ERROR_MESSAGE },
+    });
+  }
 
   const dto = serializeQuiz(quiz);
 
