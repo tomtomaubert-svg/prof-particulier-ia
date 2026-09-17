@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
@@ -16,9 +16,10 @@ function normalize(s: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
-export function QuizTaker({ content }: { content: QuizContent }) {
+export function QuizTaker({ quizId, content }: { quizId: string; content: QuizContent }) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const reportedRef = useRef(false);
 
   const score = useMemo(() => {
     if (!submitted) return 0;
@@ -30,6 +31,18 @@ export function QuizTaker({ content }: { content: QuizContent }) {
   }, [submitted, answers, content.questions]);
 
   const answeredCount = Object.keys(answers).length;
+
+  // Remonte le VRAI score à la Knowledge Map (section 31) une seule fois par
+  // validation — pas juste le fait d'avoir généré le quiz.
+  useEffect(() => {
+    if (!submitted || reportedRef.current) return;
+    reportedRef.current = true;
+    fetch(`/api/quiz/${quizId}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ score, total: content.questions.length }),
+    }).catch(() => {});
+  }, [submitted, quizId, score, content.questions.length]);
 
   if (submitted) {
     return (
@@ -73,7 +86,15 @@ export function QuizTaker({ content }: { content: QuizContent }) {
           })}
         </div>
 
-        <Button className="w-full" variant="secondary" onClick={() => { setSubmitted(false); setAnswers({}); }}>
+        <Button
+          className="w-full"
+          variant="secondary"
+          onClick={() => {
+            setSubmitted(false);
+            setAnswers({});
+            reportedRef.current = false;
+          }}
+        >
           Recommencer ce quiz
         </Button>
       </div>

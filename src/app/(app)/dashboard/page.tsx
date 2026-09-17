@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ModuleCard } from "@/components/dashboard/module-card";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { KnowledgeMap } from "@/components/knowledge-map/knowledge-map";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -12,11 +13,12 @@ export default async function DashboardPage() {
   if (!profile) return null;
   const levelDef = getLevelDef(profile.schoolLevel);
 
-  const [recentExercises, recentSheets, recentExplanations, recentQuizzes] = await Promise.all([
+  const [recentExercises, recentSheets, recentExplanations, recentQuizzes, skills] = await Promise.all([
     prisma.exerciseAttempt.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.revisionSheet.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.explanation.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.quiz.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    prisma.skillMastery.findMany({ where: { profileId: profile.id }, orderBy: [{ subject: "asc" }, { skill: "asc" }] }),
   ]);
 
   const recentActivity = [
@@ -83,6 +85,11 @@ export default async function DashboardPage() {
           title="Explique-moi"
           description="Une notion pas comprise ? On la reprend pas à pas."
         />
+      </div>
+
+      <div>
+        <h2 className="font-semibold mb-3">Progression</h2>
+        <KnowledgeMap skills={skills} />
       </div>
 
       <div>

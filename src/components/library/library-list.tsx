@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Camera, BookOpen, Lightbulb, Brain } from "lucide-react";
+import { Search, Camera, BookOpen, Lightbulb, Brain, Trash2, Loader2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,16 +19,18 @@ interface Item {
   createdAt: string;
 }
 
-const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: string }> = {
-  exercice: { icon: Camera, label: "Exercice", plural: "Exercices" },
-  fiche: { icon: BookOpen, label: "Fiche", plural: "Fiches" },
-  explication: { icon: Lightbulb, label: "Explication", plural: "Explications" },
-  quiz: { icon: Brain, label: "Quiz", plural: "Quiz" },
+const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: string; apiBase: string }> = {
+  exercice: { icon: Camera, label: "Exercice", plural: "Exercices", apiBase: "/api/exercises" },
+  fiche: { icon: BookOpen, label: "Fiche", plural: "Fiches", apiBase: "/api/fiches" },
+  explication: { icon: Lightbulb, label: "Explication", plural: "Explications", apiBase: "/api/explications" },
+  quiz: { icon: Brain, label: "Quiz", plural: "Quiz", apiBase: "/api/quiz" },
 };
 
-export function LibraryList({ items }: { items: Item[] }) {
+export function LibraryList({ items: initialItems }: { items: Item[] }) {
+  const [items, setItems] = useState(initialItems);
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<Kind | "tous">("tous");
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -38,6 +40,23 @@ export function LibraryList({ items }: { items: Item[] }) {
       return `${i.subject ?? ""} ${i.chapter ?? ""}`.toLowerCase().includes(q);
     });
   }, [items, query, kindFilter]);
+
+  async function handleDelete(item: Item, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const key = `${item.kind}-${item.id}`;
+    if (!window.confirm(`Supprimer définitivement "${item.subject ?? "cet élément"}" ?`)) return;
+
+    setDeletingKey(key);
+    try {
+      const res = await fetch(`${KIND_META[item.kind].apiBase}/${item.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => !(i.kind === item.kind && i.id === item.id)));
+      }
+    } finally {
+      setDeletingKey(null);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -73,28 +92,40 @@ export function LibraryList({ items }: { items: Item[] }) {
         <div className="space-y-2">
           {filtered.map((item) => {
             const Icon = KIND_META[item.kind].icon;
+            const key = `${item.kind}-${item.id}`;
+            const isDeleting = deletingKey === key;
             return (
-              <Link key={`${item.kind}-${item.id}`} href={item.href}>
+              <Link key={key} href={item.href}>
                 <Card className="hover:border-primary transition-colors">
                   <CardBody className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="h-9 w-9 rounded-[var(--radius-md)] bg-primary-soft text-primary flex items-center justify-center shrink-0">
                         <Icon size={16} />
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{item.subject ?? "Sans titre"}</p>
-                        <p className="text-xs text-text-secondary">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{item.subject ?? "Sans titre"}</p>
+                        <p className="text-xs text-text-secondary truncate">
                           {item.chapter ?? "—"} · {new Date(item.createdAt).toLocaleDateString("fr-FR")}
                         </p>
                       </div>
                     </div>
-                    {item.qualityScore != null ? (
-                      <Badge tone={item.qualityScore >= 16 ? "success" : "warning"}>{item.qualityScore}/20</Badge>
-                    ) : (
-                      <Badge tone={item.status === "done" ? "success" : item.status === "error" ? "error" : "primary"}>
-                        {item.status}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.qualityScore != null ? (
+                        <Badge tone={item.qualityScore >= 16 ? "success" : "warning"}>{item.qualityScore}/20</Badge>
+                      ) : (
+                        <Badge tone={item.status === "done" ? "success" : item.status === "error" ? "error" : "primary"}>
+                          {item.status}
+                        </Badge>
+                      )}
+                      <button
+                        onClick={(e) => handleDelete(item, e)}
+                        disabled={isDeleting}
+                        aria-label="Supprimer"
+                        className="h-8 w-8 flex items-center justify-center rounded-[var(--radius-md)] text-text-secondary hover:text-error hover:bg-error-soft transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                      </button>
+                    </div>
                   </CardBody>
                 </Card>
               </Link>

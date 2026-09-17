@@ -58,7 +58,7 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
         </div>
         <h1 className="text-2xl font-semibold">{dto.content.title}</h1>
       </div>
-      <QuizTaker content={dto.content} />
+      <QuizTaker quizId={dto.id} content={dto.content} />
     </div>
   );
 }

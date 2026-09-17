@@ -92,7 +92,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       },
     });
 
-    await bumpSkillMastery(profile.id, analysis.subject, analysis.chapter);
+    await bumpSkillMastery(profile.id, analysis.subject, analysis.chapter, quality.total * 5);
 
     return NextResponse.json(serializeExerciseAttempt(updated));
   } catch (err) {
