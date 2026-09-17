@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
+    "@react-pdf/renderer": "^4.9.0",
     "clsx": "^2.1.1",
     "framer-motion": "^13.3.0",
     "lucide-react": "^1.46.0",

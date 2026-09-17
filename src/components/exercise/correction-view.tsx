@@ -7,6 +7,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { safeJson } from "@/lib/client/safe-json";
+import { PdfDownloadLink } from "@/components/ui/pdf-download-link";
 import type { ExerciseAttemptDTO } from "@/lib/exercise/serialize";
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
@@ -94,6 +95,8 @@ export function CorrectionView({ attempt }: { attempt: ExerciseAttemptDTO }) {
           <Badge tone={quality.total >= 16 ? "success" : "warning"}>Qualité {quality.total}/20</Badge>
         )}
       </div>
+
+      <PdfDownloadLink href={`/api/exercises/${attempt.id}/pdf`} className="w-full" />
 
       {(analysis.unreadableParts.length > 0 || solution.unreadableParts.length > 0) && (
         <Card className="border-warning">

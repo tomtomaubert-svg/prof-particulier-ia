@@ -6,6 +6,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { safeJson } from "@/lib/client/safe-json";
 import { SheetView } from "@/components/fiche/sheet-view";
 import { CreateFlashcardsButton } from "@/components/flashcard/create-flashcards-button";
+import { PdfDownloadLink } from "@/components/ui/pdf-download-link";
 import type { RevisionSheetDTO } from "@/lib/fiche/serialize";
 
 const STEP_LABELS: Record<string, string> = {
@@ -64,7 +65,12 @@ export function SheetProgress({ initial }: { initial: RevisionSheetDTO }) {
     return (
       <div className="space-y-4">
         <SheetView sheet={sheet} />
-        {sheet.status === "done" && <CreateFlashcardsButton sheetId={sheet.id} />}
+        {sheet.status === "done" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <PdfDownloadLink href={`/api/fiches/${sheet.id}/pdf`} className="w-full" />
+            <CreateFlashcardsButton sheetId={sheet.id} />
+          </div>
+        )}
       </div>
     );
   }

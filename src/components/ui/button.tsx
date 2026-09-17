@@ -1,22 +1,22 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import clsx from "clsx";
 
-type Variant = "primary" | "secondary" | "ghost" | "outline";
-type Size = "sm" | "md" | "lg";
+export type Variant = "primary" | "secondary" | "ghost" | "outline";
+export type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
 }
 
-const variantClasses: Record<Variant, string> = {
+export const variantClasses: Record<Variant, string> = {
   primary: "bg-primary text-white hover:bg-primary-hover shadow-md",
   secondary: "bg-surface-raised text-text-primary hover:opacity-90 border border-border",
   ghost: "bg-transparent text-text-primary hover:bg-surface-raised",
   outline: "bg-transparent border border-border text-text-primary hover:bg-surface-raised",
 };
 
-const sizeClasses: Record<Size, string> = {
+export const sizeClasses: Record<Size, string> = {
   sm: "h-9 px-3 text-sm rounded-[var(--radius-sm)]",
   md: "h-11 px-5 text-sm rounded-[var(--radius-md)]",
   lg: "h-12 px-6 text-base rounded-[var(--radius-md)]",
