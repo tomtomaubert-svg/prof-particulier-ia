@@ -151,57 +151,55 @@ export async function runQualityStep(
 }
 
 // --- Module "Créer une fiche" ----------------------------------------------
+//
+// Comme pour les exercices : chaque étape est appelée dans sa PROPRE requête
+// (voir /api/fiches/[id]/advance) avec son propre budget de temps complet,
+// au lieu d'un seul appel monolithe qui dépassait les 60s sur les fiches
+// multi-pages ou denses.
 
-export interface CreateSheetPipelineInput {
-  images: AIImageInput[]; // une ou plusieurs pages photographiées
-  levelContext: string;
-  sheetType: "express" | "standard" | "complete";
-  onStatus?: (status: string) => void;
-}
-
-export interface CreateSheetPipelineResult {
-  analysis: DocumentAnalysis;
-  content: RevisionSheetContent;
-  quality: QualityEvaluation;
-}
-
-/**
- * DocumentAnalyzer -> RevisionSheetCreator -> QualityEvaluator (révision
- * ciblée si le score est insuffisant), sur le même modèle que le pipeline de
- * résolution d'exercice (sections 15-19, 24-26).
- */
-export async function runCreateRevisionSheetPipeline(
-  input: CreateSheetPipelineInput
-): Promise<CreateSheetPipelineResult> {
+/** Étape 1 : DocumentAnalyzer sur une ou plusieurs pages. */
+export async function runSheetAnalyzeStep(images: AIImageInput[], levelContext: string): Promise<DocumentAnalysis> {
   const timeLeft = createDeadline();
-
-  input.onStatus?.("analyzing");
-  const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
   const analysis = await routeModel("document-analysis").generateStructured({
-    ...analysisPrompt,
-    images: input.images,
+    ...buildDocumentAnalysisPrompt(levelContext),
+    images,
     schema: DocumentAnalysisSchema,
     deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
+  return analysis;
+}
 
-  input.onStatus?.("creating");
-  const sheetPrompt = buildRevisionSheetPrompt(input.levelContext, analysis, input.sheetType);
-  let content = await routeModel("revision-sheet-creation").generateStructured({
-    ...sheetPrompt,
+/** Étape 2 : RevisionSheetCreator seul. */
+export async function runSheetCreateStep(
+  levelContext: string,
+  analysis: DocumentAnalysis,
+  sheetType: string
+): Promise<RevisionSheetContent> {
+  const timeLeft = createDeadline();
+  return routeModel("revision-sheet-creation").generateStructured({
+    ...buildRevisionSheetPrompt(levelContext, analysis, sheetType),
     schema: RevisionSheetContentSchema,
     deadlineMs: timeLeft(),
   });
+}
 
-  input.onStatus?.("evaluating-quality");
+/** Étape 3 : QualityEvaluator + révision ciblée si besoin (son propre budget). */
+export async function runSheetQualityStep(
+  levelContext: string,
+  analysis: DocumentAnalysis,
+  sheetType: string,
+  content: RevisionSheetContent
+): Promise<{ content: RevisionSheetContent; quality: QualityEvaluation }> {
+  const timeLeft = createDeadline();
   let quality = await routeModel("quality-review").generateStructured({
-    ...buildQualityReviewerPrompt(input.levelContext, content, "une fiche de révision"),
+    ...buildQualityReviewerPrompt(levelContext, content, "une fiche de révision"),
     schema: QualityEvaluationSchema,
     deadlineMs: timeLeft(),
   });
 
   if (!quality.passesThreshold) {
-    const revisionPrompt = buildRevisionSheetPrompt(input.levelContext, analysis, input.sheetType);
+    const revisionPrompt = buildRevisionSheetPrompt(levelContext, analysis, sheetType);
     content = await routeModel("revision-sheet-creation").generateStructured({
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une évaluation qualité a relevé ces défauts sur une version précédente, corrige-les avant de répondre : ${quality.defects.join("; ")}`,
@@ -209,53 +207,45 @@ export async function runCreateRevisionSheetPipeline(
       deadlineMs: timeLeft(),
     });
     quality = await routeModel("quality-review").generateStructured({
-      ...buildQualityReviewerPrompt(input.levelContext, content, "une fiche de révision"),
+      ...buildQualityReviewerPrompt(levelContext, content, "une fiche de révision"),
       schema: QualityEvaluationSchema,
       deadlineMs: timeLeft(),
     });
   }
 
-  input.onStatus?.("done");
-  return { analysis, content, quality };
+  return { content, quality };
 }
 
 // --- Module "Explique-moi" --------------------------------------------------
 
-export interface ExplainPipelineInput {
-  image: AIImageInput;
-  levelContext: string;
-  depth: "simple" | "normal" | "approfondi";
-  onStatus?: (status: string) => void;
-}
+// Même découpage que les exercices/fiches : une requête par étape (voir
+// /api/explications/[id]/advance), chacune avec son propre budget complet.
 
-export interface ExplainPipelineResult {
-  analysis: DocumentAnalysis;
-  round: ExplanationRound;
-}
-
-/** Premier round d'explication : DocumentAnalyzer -> LessonExplainer (sections 20-21). */
-export async function runExplainPipeline(input: ExplainPipelineInput): Promise<ExplainPipelineResult> {
+/** Étape 1 : DocumentAnalyzer seul. */
+export async function runExplainAnalyzeStep(image: AIImageInput, levelContext: string): Promise<DocumentAnalysis> {
   const timeLeft = createDeadline();
-
-  input.onStatus?.("analyzing");
-  const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
   const analysis = await routeModel("document-analysis").generateStructured({
-    ...analysisPrompt,
-    images: [input.image],
+    ...buildDocumentAnalysisPrompt(levelContext),
+    images: [image],
     schema: DocumentAnalysisSchema,
     deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
+  return analysis;
+}
 
-  input.onStatus?.("explaining");
-  const round = await routeModel("lesson-explanation").generateStructured({
-    ...buildLessonExplainerPrompt(input.levelContext, analysis, input.depth),
+/** Étape 2 : LessonExplainer seul (premier round). */
+export async function runExplainGenerateStep(
+  levelContext: string,
+  analysis: DocumentAnalysis,
+  depth: "simple" | "normal" | "approfondi"
+): Promise<ExplanationRound> {
+  const timeLeft = createDeadline();
+  return routeModel("lesson-explanation").generateStructured({
+    ...buildLessonExplainerPrompt(levelContext, analysis, depth),
     schema: ExplanationRoundSchema,
     deadlineMs: timeLeft(),
   });
-
-  input.onStatus?.("done");
-  return { analysis, round };
 }
 
 /**

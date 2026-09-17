@@ -2,24 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/student/current-profile";
-import { buildLevelContext } from "@/lib/student/levels";
-import { runExplainPipeline } from "@/lib/ai/pipeline";
-import { describePipelineError } from "@/lib/ai/describe-pipeline-error";
 import { serializeExplanation } from "@/lib/explication/serialize";
-import { bumpSkillMastery } from "@/lib/student/skill-mastery";
 
-export const maxDuration = 60; // plafond réel du plan Vercel Hobby (même si on demandait plus)
-
+// Crée seulement la ligne (aucun appel IA ici) : le pipeline avance ensuite
+// étape par étape via /api/explications/[id]/advance — voir le commentaire
+// sur /api/exercises pour la raison (limite de 60s des fonctions Vercel Hobby).
 const BodySchema = z.object({
   imageDataUrl: z.string().startsWith("data:image/"),
   depth: z.enum(["simple", "normal", "approfondi"]).default("normal"),
 });
-
-function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
-  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!match) throw new Error("Format d'image invalide");
-  return { mimeType: match[1], base64: match[2] };
-}
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -29,54 +20,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { imageDataUrl, depth } = parsed.data;
 
-  let image: { mimeType: string; base64: string };
-  try {
-    image = parseDataUrl(imageDataUrl);
-  } catch {
+  if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,.+$/.test(imageDataUrl)) {
     return NextResponse.json({ error: "Image invalide" }, { status: 400 });
   }
 
   const explanation = await prisma.explanation.create({
-    data: { profileId: profile.id, imageDataUrl, depth, status: "analyzing" },
+    data: { profileId: profile.id, imageDataUrl, depth, status: "pending" },
   });
 
-  const levelContext = buildLevelContext({
-    schoolLevel: profile.schoolLevel,
-    track: profile.track,
-    specialities: profile.specialities,
-  });
-
-  try {
-    const result = await runExplainPipeline({
-      image: { mimeType: image.mimeType, dataBase64: image.base64 },
-      levelContext,
-      depth,
-      onStatus: (status) => {
-        prisma.explanation.update({ where: { id: explanation.id }, data: { status } }).catch(() => {});
-      },
-    });
-
-    const updated = await prisma.explanation.update({
-      where: { id: explanation.id },
-      data: {
-        status: "done",
-        subject: result.analysis.subject,
-        chapter: result.analysis.chapter,
-        detectedLevel: result.analysis.detectedLevel,
-        analysisJson: JSON.stringify(result.analysis),
-        roundsJson: JSON.stringify([result.round]),
-      },
-    });
-
-    await bumpSkillMastery(profile.id, result.analysis.subject, result.analysis.chapter);
-
-    return NextResponse.json(serializeExplanation(updated));
-  } catch (err) {
-    const message = describePipelineError(err);
-    const updated = await prisma.explanation.update({
-      where: { id: explanation.id },
-      data: { status: "error", errorMessage: message },
-    });
-    return NextResponse.json(serializeExplanation(updated), { status: 502 });
-  }
+  return NextResponse.json(serializeExplanation(explanation));
 }
