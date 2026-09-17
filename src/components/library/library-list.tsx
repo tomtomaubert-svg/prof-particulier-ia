@@ -26,7 +26,7 @@ const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: 
   quiz: { icon: Brain, label: "Quiz", plural: "Quiz", apiBase: "/api/quiz" },
 };
 
-const CONFIRM_TIMEOUT_MS = 4000;
+const CONFIRM_TIMEOUT_MS = 8000;
 
 export function LibraryList({ items: initialItems }: { items: Item[] }) {
   const [items, setItems] = useState(initialItems);
