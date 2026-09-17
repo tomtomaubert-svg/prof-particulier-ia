@@ -53,34 +53,20 @@ function createDeadline(totalMs: number = PIPELINE_TIME_BUDGET_MS) {
   return () => Math.max(totalMs - (Date.now() - startedAt), 3000);
 }
 
-export interface SolvePipelineInput {
-  imageMimeType: string;
-  imageDataBase64: string;
-  levelContext: string;
-  mode: "apprendre" | "correction";
-  onStatus?: (status: string) => void;
-}
+// Le pipeline d'exercice est découpé en étapes séparées, chacune appelée
+// dans sa PROPRE requête HTTP par le client (voir /api/exercises/[id]/advance),
+// au lieu d'un seul appel monolithe. Raison concrète : sur une photo dense
+// (beaucoup de texte, travail d'élève long), analyse + résolution +
+// vérification + qualité mises bout à bout dépassent régulièrement les 60s
+// que Vercel Hobby autorise pour UNE requête — la fonction est alors tuée
+// net, sans possibilité d'enregistrer un échec propre. Chaque étape a
+// maintenant son propre budget de temps complet (50s), pas une fraction
+// partagée entre 4 appels IA séquentiels.
 
-export interface SolvePipelineResult {
-  analysis: DocumentAnalysis;
-  solution: ExerciseSolution;
-  verification: VerificationResult;
-  quality: QualityEvaluation;
-}
-
-/**
- * Pipeline Solver -> Verifier -> (révision ciblée si besoin) -> QualityEvaluator
- * (sections 25/26). Le nombre d'appels IA est volontairement borné (1 révision
- * max à chaque étape) pour rester dans le quota gratuit de l'API tout en
- * respectant l'exigence de double vérification indépendante et de contrôle
- * qualité avant affichage (section 24).
- */
-export async function runSolveExercisePipeline(input: SolvePipelineInput): Promise<SolvePipelineResult> {
-  const image = { mimeType: input.imageMimeType, dataBase64: input.imageDataBase64 };
+/** Étape 1 : DocumentAnalyzer seul. */
+export async function runAnalyzeStep(image: AIImageInput, levelContext: string): Promise<DocumentAnalysis> {
   const timeLeft = createDeadline();
-
-  input.onStatus?.("analyzing");
-  const analysisPrompt = buildDocumentAnalysisPrompt(input.levelContext);
+  const analysisPrompt = buildDocumentAnalysisPrompt(levelContext);
   const analysis = await routeModel("document-analysis").generateStructured({
     ...analysisPrompt,
     images: [image],
@@ -88,26 +74,35 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
     deadlineMs: timeLeft(),
   });
   assertAnalysisIsUsable(analysis);
+  return analysis;
+}
 
-  input.onStatus?.("solving");
-  const solverPrompt = buildExerciseSolverPrompt(input.levelContext, analysis);
-  let solution = await routeModel("exercise-solving").generateStructured({
+/** Étape 2 : ExerciseSolver seul. */
+export async function runSolveStep(levelContext: string, analysis: DocumentAnalysis): Promise<ExerciseSolution> {
+  const timeLeft = createDeadline();
+  const solverPrompt = buildExerciseSolverPrompt(levelContext, analysis);
+  return routeModel("exercise-solving").generateStructured({
     ...solverPrompt,
     schema: ExerciseSolutionSchema,
     deadlineMs: timeLeft(),
   });
+}
 
-  input.onStatus?.("verifying");
-  const verifierPrompt = buildExerciseVerifierPrompt(input.levelContext, analysis, solution);
+/** Étape 3 : ExerciseVerifier + révision ciblée si besoin (son propre budget). */
+export async function runVerifyStep(
+  levelContext: string,
+  analysis: DocumentAnalysis,
+  solution: ExerciseSolution
+): Promise<{ solution: ExerciseSolution; verification: VerificationResult }> {
+  const timeLeft = createDeadline();
   let verification = await routeModel("exercise-verification").generateStructured({
-    ...verifierPrompt,
+    ...buildExerciseVerifierPrompt(levelContext, analysis, solution),
     schema: VerificationResultSchema,
     deadlineMs: timeLeft(),
   });
 
   if (!verification.isValid) {
-    // Révision ciblée : on redemande au solver de corriger avec le retour du vérificateur.
-    const revisionPrompt = buildExerciseSolverPrompt(input.levelContext, analysis);
+    const revisionPrompt = buildExerciseSolverPrompt(levelContext, analysis);
     solution = await routeModel("exercise-solving").generateStructured({
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une vérification indépendante a signalé ces problèmes dans une tentative précédente, corrige-les : ${verification.issues.join("; ")}${verification.correctedResult ? `\nRésultat correct attendu : ${verification.correctedResult}` : ""}`,
@@ -115,22 +110,30 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
       deadlineMs: timeLeft(),
     });
     verification = await routeModel("exercise-verification").generateStructured({
-      ...buildExerciseVerifierPrompt(input.levelContext, analysis, solution),
+      ...buildExerciseVerifierPrompt(levelContext, analysis, solution),
       schema: VerificationResultSchema,
       deadlineMs: timeLeft(),
     });
   }
 
-  input.onStatus?.("evaluating-quality");
-  const qualityPrompt = buildQualityReviewerPrompt(input.levelContext, solution);
+  return { solution, verification };
+}
+
+/** Étape 4 : QualityEvaluator + révision ciblée si besoin (son propre budget). */
+export async function runQualityStep(
+  levelContext: string,
+  analysis: DocumentAnalysis,
+  solution: ExerciseSolution
+): Promise<{ solution: ExerciseSolution; quality: QualityEvaluation }> {
+  const timeLeft = createDeadline();
   let quality = await routeModel("quality-review").generateStructured({
-    ...qualityPrompt,
+    ...buildQualityReviewerPrompt(levelContext, solution),
     schema: QualityEvaluationSchema,
     deadlineMs: timeLeft(),
   });
 
   if (!quality.passesThreshold) {
-    const revisionPrompt = buildExerciseSolverPrompt(input.levelContext, analysis);
+    const revisionPrompt = buildExerciseSolverPrompt(levelContext, analysis);
     solution = await routeModel("exercise-solving").generateStructured({
       systemPrompt: revisionPrompt.systemPrompt,
       userPrompt: `${revisionPrompt.userPrompt}\n\nATTENTION : une évaluation qualité a relevé ces défauts sur une version précédente, corrige-les avant de répondre : ${quality.defects.join("; ")}`,
@@ -138,14 +141,13 @@ export async function runSolveExercisePipeline(input: SolvePipelineInput): Promi
       deadlineMs: timeLeft(),
     });
     quality = await routeModel("quality-review").generateStructured({
-      ...buildQualityReviewerPrompt(input.levelContext, solution),
+      ...buildQualityReviewerPrompt(levelContext, solution),
       schema: QualityEvaluationSchema,
       deadlineMs: timeLeft(),
     });
   }
 
-  input.onStatus?.("done");
-  return { analysis, solution, verification, quality };
+  return { solution, quality };
 }
 
 // --- Module "Créer une fiche" ----------------------------------------------
