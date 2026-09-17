@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, Camera, BookOpen, Lightbulb, Brain, Trash2, Loader2 } from "lucide-react";
+import { Search, Camera, BookOpen, Lightbulb, Brain, Trash2, Check, Loader2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,11 +26,19 @@ const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: 
   quiz: { icon: Brain, label: "Quiz", plural: "Quiz", apiBase: "/api/quiz" },
 };
 
+const CONFIRM_TIMEOUT_MS = 4000;
+
 export function LibraryList({ items: initialItems }: { items: Item[] }) {
   const [items, setItems] = useState(initialItems);
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<Kind | "tous">("tous");
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,12 +49,7 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
     });
   }, [items, query, kindFilter]);
 
-  async function handleDelete(item: Item, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const key = `${item.kind}-${item.id}`;
-    if (!window.confirm(`Supprimer définitivement "${item.subject ?? "cet élément"}" ?`)) return;
-
+  async function performDelete(item: Item, key: string) {
     setDeletingKey(key);
     try {
       const res = await fetch(`${KIND_META[item.kind].apiBase}/${item.id}`, { method: "DELETE" });
@@ -56,6 +59,24 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
     } finally {
       setDeletingKey(null);
     }
+  }
+
+  // Pas de window.confirm() natif (peu fiable/cohérent sur mobile) : un
+  // premier tap arme une confirmation dans l'interface elle-même, un second
+  // tap dans les 4s déclenche vraiment la suppression.
+  function handleTrashClick(item: Item, key: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+
+    if (confirmingKey === key) {
+      setConfirmingKey(null);
+      performDelete(item, key);
+      return;
+    }
+
+    setConfirmingKey(key);
+    confirmTimerRef.current = setTimeout(() => setConfirmingKey(null), CONFIRM_TIMEOUT_MS);
   }
 
   return (
@@ -94,6 +115,7 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
             const Icon = KIND_META[item.kind].icon;
             const key = `${item.kind}-${item.id}`;
             const isDeleting = deletingKey === key;
+            const isConfirming = confirmingKey === key;
             return (
               <Link key={key} href={item.href}>
                 <Card className="hover:border-primary transition-colors">
@@ -110,7 +132,9 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {item.qualityScore != null ? (
+                      {isConfirming ? (
+                        <span className="text-xs text-error font-medium">Supprimer ?</span>
+                      ) : item.qualityScore != null ? (
                         <Badge tone={item.qualityScore >= 16 ? "success" : "warning"}>{item.qualityScore}/20</Badge>
                       ) : (
                         <Badge tone={item.status === "done" ? "success" : item.status === "error" ? "error" : "primary"}>
@@ -118,12 +142,22 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
                         </Badge>
                       )}
                       <button
-                        onClick={(e) => handleDelete(item, e)}
+                        onClick={(e) => handleTrashClick(item, key, e)}
                         disabled={isDeleting}
-                        aria-label="Supprimer"
-                        className="h-8 w-8 flex items-center justify-center rounded-[var(--radius-md)] text-text-secondary hover:text-error hover:bg-error-soft transition-colors disabled:opacity-50"
+                        aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                        className={`h-8 w-8 flex items-center justify-center rounded-[var(--radius-md)] transition-colors disabled:opacity-50 ${
+                          isConfirming
+                            ? "bg-error text-white"
+                            : "text-text-secondary hover:text-error hover:bg-error-soft"
+                        }`}
                       >
-                        {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                        {isDeleting ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : isConfirming ? (
+                          <Check size={15} />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
                       </button>
                     </div>
                   </CardBody>
