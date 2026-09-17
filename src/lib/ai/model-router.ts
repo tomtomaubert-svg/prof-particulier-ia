@@ -15,6 +15,7 @@ export type AITask =
   | "lesson-explanation" // pédagogie progressive
   | "quiz-generation" // génération de quiz
   | "chapter-listing" // liste des chapitres d'une matière/niveau
+  | "flashcard-generation" // génération de flashcards depuis une fiche
   | "quality-review"; // évaluation qualité
 
 export function routeModel(task: AITask): AIProvider {

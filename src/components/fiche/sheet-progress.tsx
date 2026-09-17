@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { safeJson } from "@/lib/client/safe-json";
 import { SheetView } from "@/components/fiche/sheet-view";
+import { CreateFlashcardsButton } from "@/components/flashcard/create-flashcards-button";
 import type { RevisionSheetDTO } from "@/lib/fiche/serialize";
 
 const STEP_LABELS: Record<string, string> = {
@@ -60,7 +61,12 @@ export function SheetProgress({ initial }: { initial: RevisionSheetDTO }) {
   }, []);
 
   if (TERMINAL.has(sheet.status)) {
-    return <SheetView sheet={sheet} />;
+    return (
+      <div className="space-y-4">
+        <SheetView sheet={sheet} />
+        {sheet.status === "done" && <CreateFlashcardsButton sheetId={sheet.id} />}
+      </div>
+    );
   }
 
   return (

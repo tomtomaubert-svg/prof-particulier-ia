@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, Camera, BookOpen, Lightbulb, Brain, Trash2, Check, Loader2 } from "lucide-react";
+import { Search, Camera, BookOpen, Lightbulb, Brain, Layers, Trash2, Check, Loader2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-type Kind = "exercice" | "fiche" | "explication" | "quiz";
+type Kind = "exercice" | "fiche" | "explication" | "quiz" | "flashcards";
 
 interface Item {
   id: string;
@@ -24,6 +24,7 @@ const KIND_META: Record<Kind, { icon: React.ElementType; label: string; plural: 
   fiche: { icon: BookOpen, label: "Fiche", plural: "Fiches", apiBase: "/api/fiches" },
   explication: { icon: Lightbulb, label: "Explication", plural: "Explications", apiBase: "/api/explications" },
   quiz: { icon: Brain, label: "Quiz", plural: "Quiz", apiBase: "/api/quiz" },
+  flashcards: { icon: Layers, label: "Flashcards", plural: "Flashcards", apiBase: "/api/flashcards" },
 };
 
 const CONFIRM_TIMEOUT_MS = 8000;
@@ -92,7 +93,7 @@ export function LibraryList({ items: initialItems }: { items: Item[] }) {
       </div>
 
       <div className="flex gap-2 overflow-x-auto">
-        {(["tous", "exercice", "fiche", "explication", "quiz"] as const).map((k) => (
+        {(["tous", "exercice", "fiche", "explication", "quiz", "flashcards"] as const).map((k) => (
           <button
             key={k}
             onClick={() => setKindFilter(k)}

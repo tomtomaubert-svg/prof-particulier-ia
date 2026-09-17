@@ -13,11 +13,12 @@ export default async function DashboardPage() {
   if (!profile) return null;
   const levelDef = getLevelDef(profile.schoolLevel);
 
-  const [recentExercises, recentSheets, recentExplanations, recentQuizzes, skills] = await Promise.all([
+  const [recentExercises, recentSheets, recentExplanations, recentQuizzes, recentFlashcardDecks, skills] = await Promise.all([
     prisma.exerciseAttempt.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.revisionSheet.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.explanation.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.quiz.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    prisma.flashcardDeck.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.skillMastery.findMany({ where: { profileId: profile.id }, orderBy: [{ subject: "asc" }, { skill: "asc" }] }),
   ]);
 
@@ -53,6 +54,14 @@ export default async function DashboardPage() {
       subtitle: q.theme,
       status: q.status,
       createdAt: q.createdAt,
+    })),
+    ...recentFlashcardDecks.map((d) => ({
+      id: d.id,
+      href: `/flashcards/${d.id}`,
+      title: d.subject,
+      subtitle: d.theme,
+      status: d.status,
+      createdAt: d.createdAt,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

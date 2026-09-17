@@ -26,6 +26,7 @@ model StudentProfile {
   sheets      RevisionSheet[]
   explanations Explanation[]
   quizzes     Quiz[]
+  flashcardDecks FlashcardDeck[]
 }
 
 model SkillMastery {
@@ -138,4 +139,43 @@ model Quiz {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- Module "Flashcards" (section 29) ---------------------------------------
+
+model FlashcardDeck {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  sourceSheetId String? // fiche d'origine, si générées depuis une fiche
+  subject     String
+  theme       String
+  levelLabel  String
+
+  status      String   @default("pending") // pending | generating | done | error
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cards       FlashcardItem[]
+}
+
+model FlashcardItem {
+  id          String   @id @default(cuid())
+  deckId      String
+  deck        FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  question    String
+  answer      String
+
+  // Répétition espacée façon Leitner (section 29) : boîte 1 (à revoir vite)
+  // à 5 (maîtrisée, revue rarement). "Je ne connais pas" -> boîte 1,
+  // "À revoir" -> reste/descend d'un cran, "Je connais" -> monte d'un cran.
+  box         Int      @default(1)
+  nextReviewAt DateTime @default(now())
+  reviewCount Int      @default(0)
+
+  createdAt   DateTime @default(now())
 }

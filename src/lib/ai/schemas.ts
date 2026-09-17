@@ -158,6 +158,18 @@ export const QuizContentSchema = z.object({
 });
 export type QuizContent = z.infer<typeof QuizContentSchema>;
 
+// --- Module "Flashcards" (section 29) ---------------------------------------
+
+export const FlashcardItemSchema = z.object({
+  question: z.string(),
+  answer: z.string(),
+});
+
+export const FlashcardSetSchema = z.object({
+  cards: z.array(FlashcardItemSchema),
+});
+export type FlashcardSet = z.infer<typeof FlashcardSetSchema>;
+
 // --- Exploration "tous les chapitres" d'une matière/niveau (section 28) ----
 
 export const ChapterListSchema = z.object({

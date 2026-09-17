@@ -7,6 +7,7 @@ import { buildRevisionSheetPrompt } from "./prompts/revision-sheet-prompt";
 import { buildLessonExplainerPrompt } from "./prompts/lesson-explainer-prompt";
 import { buildQuizGeneratorPrompt } from "./prompts/quiz-generator-prompt";
 import { buildChapterListPrompt } from "./prompts/chapter-list-prompt";
+import { buildFlashcardGeneratorPrompt } from "./prompts/flashcard-generator-prompt";
 import {
   DocumentAnalysisSchema,
   ExerciseSolutionSchema,
@@ -16,6 +17,7 @@ import {
   ExplanationRoundSchema,
   QuizContentSchema,
   ChapterListSchema,
+  FlashcardSetSchema,
   type DocumentAnalysis,
   type ExerciseSolution,
   type VerificationResult,
@@ -23,6 +25,7 @@ import {
   type RevisionSheetContent,
   type ExplanationRound,
   type QuizContent,
+  type FlashcardSet,
 } from "./schemas";
 import type { AIImageInput } from "./provider";
 import { UnreadableContentError } from "./errors";
@@ -295,4 +298,17 @@ export async function runListChaptersPipeline(input: { subject: string; levelLab
     schema: ChapterListSchema,
   });
   return result.chapters;
+}
+
+// --- Module "Flashcards" -----------------------------------------------------
+
+/** FlashcardGenerator (section 29) : transforme une fiche déjà créée en cartes Q/R. */
+export async function runGenerateFlashcardsPipeline(
+  levelContext: string,
+  sheet: RevisionSheetContent
+): Promise<FlashcardSet> {
+  return routeModel("flashcard-generation").generateStructured({
+    ...buildFlashcardGeneratorPrompt(levelContext, sheet),
+    schema: FlashcardSetSchema,
+  });
 }

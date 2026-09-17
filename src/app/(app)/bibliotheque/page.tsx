@@ -6,11 +6,12 @@ export default async function BibliothequePage() {
   const profileId = await getCurrentProfileId();
   if (!profileId) return null;
 
-  const [exercises, sheets, explanations, quizzes] = await Promise.all([
+  const [exercises, sheets, explanations, quizzes, flashcardDecks] = await Promise.all([
     prisma.exerciseAttempt.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
     prisma.revisionSheet.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
     prisma.explanation.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
     prisma.quiz.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
+    prisma.flashcardDeck.findMany({ where: { profileId }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const items = [
@@ -53,6 +54,16 @@ export default async function BibliothequePage() {
       status: q.status,
       qualityScore: null,
       createdAt: q.createdAt.toISOString(),
+    })),
+    ...flashcardDecks.map((d) => ({
+      id: d.id,
+      href: `/flashcards/${d.id}`,
+      kind: "flashcards" as const,
+      subject: d.subject,
+      chapter: d.theme,
+      status: d.status,
+      qualityScore: null,
+      createdAt: d.createdAt.toISOString(),
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
